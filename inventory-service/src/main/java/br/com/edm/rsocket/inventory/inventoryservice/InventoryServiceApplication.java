@@ -1,19 +1,17 @@
-package br.com.edm.rsocket.control.controlservice;
+package br.com.edm.rsocket.inventory.inventoryservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.stereotype.Controller;
-import reactor.core.publisher.Flux;
 
 import java.time.Instant;
-import java.util.stream.Stream;
 
 @SpringBootApplication
-public class ControlServiceApplication {
+public class InventoryServiceApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(ControlServiceApplication.class, args);
+		SpringApplication.run(InventoryServiceApplication.class, args);
 	}
 
 }
@@ -21,13 +19,12 @@ public class ControlServiceApplication {
 @Controller
 class RSocketController {
 
-	@MessageMapping("create-order")
-	Order requestResponse(Long id) {
-		System.out.printf("Received request-response request: %s\n", id);
-		// create a single Message and return it
-		return new Order(id, "created", Instant.now());
-	}
+	@MessageMapping("inventory-order")
+	Order requestResponse(Order order) {
+		System.out.printf("Received request-response request: %s\n", order.getOrderId());
 
+		return new Order(order.getOrderId(), "inventory", Instant.now());
+	}
 }
 
 class Order {
