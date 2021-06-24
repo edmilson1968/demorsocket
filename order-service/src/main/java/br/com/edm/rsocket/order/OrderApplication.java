@@ -28,26 +28,17 @@ public class OrderApplication {
 class OrderController {
 
 	private final RSocketRequester createOrderRequester;
-	private final RSocketRequester payOrderRequester;
 
 	public OrderController(@Autowired RSocketRequester.Builder builder) {
 		this.createOrderRequester =
 				builder.connectTcp("localhost", 7000)
 						.onErrorContinue((e, i) -> {
-							System.out.println("Error For Item +" + i );
+							System.out.println("Error For Item +" + i);
 						})
 						.block();
-		this.payOrderRequester =
-				builder.connectTcp("localhost", 7100)
-						.onErrorContinue((e, i) -> {
-							System.out.println("Error For Item +" + i );
-						})
-						.block();
-
 	}
 
 	private Random random = new Random();
-
 
 	@GetMapping(value = "/neworders", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public Flux<Order> create() {
@@ -55,26 +46,42 @@ class OrderController {
 				.fromStream(Stream.generate(() -> random.nextLong()))
 				.delayElements(Duration.ofSeconds(1))
 				.flatMap(id -> sendOrder(id))
-				.log()
-				.flatMap(pay -> payOrder(pay))
-				.log()
 				;
 		return ordersFlux;
 	}
 
-	private Mono<Order> sendOrder(Long id) {
-		Mono<Order> createdOrder =
+	@GetMapping(value = "/gera", produces = MediaType.APPLICATION_JSON_VALUE)
+	public Mono<Order> geraOne() {
+		Mono<Order> ordersFlux = Mono.just(random.nextLong())
+//				.fromStream(Stream.generate(() -> random.nextLong()))
+//				.delayElements(Duration.ofSeconds(1))
+				.flatMap(id -> sendOneOrder(id)).log();
+				;
+		return ordersFlux;
+	}
+
+	private Flux<Order> sendOrder(Long id) {
+		Flux<Order> createdOrder =
 				createOrderRequester
 						.route("create-order")
+						.data(id)
+						.retrieveFlux(Order.class)
+				;
+		return createdOrder;
+	}
+	private Mono<Order> sendOneOrder(Long id) {
+		Mono<Order> createdOrder =
+				createOrderRequester
+						.route("create-order-mono")
 						.data(id)
 						.retrieveMono(Order.class)
 				;
 		return createdOrder;
 	}
 
-	private Mono<Order> payOrder(Order order) {
-		return payOrderRequester.route("payment-order").data(order).retrieveMono(Order.class);
-	}
+//	private Mono<Order> payOrder(Order order) {
+//		return payOrderRequester.route("payment-order").data(order).retrieveMono(Order.class);
+//	}
 
 }
 
@@ -100,6 +107,15 @@ class Order {
 
 	public Instant getTimestamp() {
 		return timestamp;
+	}
+
+	@Override
+	public String toString() {
+		return "Order{" +
+				"orderId=" + orderId +
+				", status='" + status + '\'' +
+				", timestamp=" + timestamp +
+				'}';
 	}
 }
 
