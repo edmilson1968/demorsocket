@@ -3,17 +3,17 @@ package br.com.edm.rsocket.order;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.http.MediaType;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Random;
-import java.util.stream.Stream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @SpringBootApplication
 public class OrderApplication {
@@ -34,30 +34,23 @@ class OrderController {
 				builder.connectTcp("localhost", 7000)
 						.onErrorContinue((e, i) -> {
 							System.out.println("Error For Item +" + i);
-						})
-						.block();
+						}).block();
 	}
 
 	private Random random = new Random();
 
-	@GetMapping(value = "/neworders", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-	public Flux<Order> create() {
-		Flux<Order> ordersFlux = Flux
-				.fromStream(Stream.generate(() -> random.nextLong()))
-				.delayElements(Duration.ofSeconds(1))
-				.flatMap(id -> sendOrder(id))
-				;
-		return ordersFlux;
-	}
-
-	@GetMapping(value = "/gera", produces = MediaType.APPLICATION_JSON_VALUE)
-	public Mono<Order> geraOne() {
-		Mono<Order> ordersFlux = Mono.just(random.nextLong())
-//				.fromStream(Stream.generate(() -> random.nextLong()))
-//				.delayElements(Duration.ofSeconds(1))
-				.flatMap(id -> sendOneOrder(id)).log();
-				;
-		return ordersFlux;
+	@GetMapping(value = "/neworders")
+	public void create() {
+		ExecutorService myPool = Executors.newFixedThreadPool(10);
+		Flux
+			.range(1, 10)
+			.delayElements(Duration.ofSeconds(1))
+			.parallel(10)
+			.runOn(Schedulers.fromExecutorService(myPool))
+			.map(i -> Integer.toUnsignedLong(i))
+			.flatMap(id -> sendOrder(id))
+			.sequential()
+			.subscribe();
 	}
 
 	private Flux<Order> sendOrder(Long id) {
@@ -69,19 +62,6 @@ class OrderController {
 				;
 		return createdOrder;
 	}
-	private Mono<Order> sendOneOrder(Long id) {
-		Mono<Order> createdOrder =
-				createOrderRequester
-						.route("create-order-mono")
-						.data(id)
-						.retrieveMono(Order.class)
-				;
-		return createdOrder;
-	}
-
-//	private Mono<Order> payOrder(Order order) {
-//		return payOrderRequester.route("payment-order").data(order).retrieveMono(Order.class);
-//	}
 
 }
 
@@ -109,13 +89,5 @@ class Order {
 		return timestamp;
 	}
 
-	@Override
-	public String toString() {
-		return "Order{" +
-				"orderId=" + orderId +
-				", status='" + status + '\'' +
-				", timestamp=" + timestamp +
-				'}';
-	}
 }
 

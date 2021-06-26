@@ -4,9 +4,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.stereotype.Controller;
-import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.Instant;
+import java.util.concurrent.ThreadLocalRandom;
 
 @SpringBootApplication
 public class PaymentServiceApplication {
@@ -18,13 +19,20 @@ public class PaymentServiceApplication {
 }
 
 @Controller
-class RSocketController {
+class PaymentController {
 
 	@MessageMapping("payment-order")
-	Order requestResponse(Order order) {
-		System.out.printf("Received request-response request: %s\n", order.getOrderId());
+	Mono<Order> requestResponse(Long id) throws InterruptedException {
+		delay();
+		return Mono.just(new Order(id, "payment", Instant.now()));
+	}
 
-		return new Order(order.getOrderId(), "payment", Instant.now());
+	private void delay() {
+		try {
+			Thread.sleep(ThreadLocalRandom.current().nextLong(1000, 4000));
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 	}
 }
 

@@ -6,15 +6,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.stereotype.Controller;
-import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.SynchronousSink;
 
-import java.time.Duration;
 import java.time.Instant;
-import java.util.stream.Stream;
 
 @SpringBootApplication
 public class ControlServiceApplication {
@@ -26,57 +21,72 @@ public class ControlServiceApplication {
 }
 
 @Controller
-class RSocketController {
+class ControlServiceController {
 
-	private final RSocketRequester inventoryRequester;
-	private final RSocketRequester paymentRequester;
+	private RSocketRequester inventoryRequester;
+	private RSocketRequester paymentRequester;
 
-	public RSocketController(@Autowired RSocketRequester.Builder builder) {
-		this.paymentRequester = null;
-//				builder.connectTcp("localhost", 7100)
-//						.onErrorContinue((e, i) -> {
-//							System.out.println("Error For Item +" + i );
-//						})
-//						.block();
+	private final RSocketRequester.Builder builder;
 
-		this.inventoryRequester = null;
-//				builder.connectTcp("localhost", 7200)
-//						.onErrorContinue((e, i) -> {
-//							System.out.println("Error For Item +" + i );
-//						})
-//						.block();
+	public ControlServiceController(@Autowired RSocketRequester.Builder builder) {
+		this.builder = builder;
+		isInventoryRequesterConnected();
+		isPaymentRequesterConnected();
 	}
 
 	@MessageMapping("create-order")
 	Flux<Order> requestResponse(Long id) {
-		System.out.printf("criando pedido: %s\n", id);
-
-		Flux<Order> orderCreated =
-			Flux.generate((SynchronousSink<Order> synchronousSink) -> {
-				synchronousSink.next(new Order(id, "created", Instant.now()));
-			});
-
-//		Disposable created = Flux.fromStream(Stream.generate(() -> new Order(id, "created", Instant.now()))).subscribe();
-
-//		Flux<Order> pay = Flux.merge(orderCreated)
-//			.doOnNext(
-//					o -> new Order(o.getOrderId(), "payment"  , Instant.now())
-//			)
-		;
-//
-//		Flux<Order> invent = Flux.merge(pay)
-//			.doOnNext(o -> new Order(o.getOrderId(), "inventory", Instant.now())).delayElements(Duration.ofSeconds(10));
-		;
-		return orderCreated;
+		final Flux<Order> created = Flux
+				.just(new Order(id, "created", Instant.now()))
+				.doOnNext(o -> System.out.println(o))
+				.concatMap(a -> payOrder(a.getOrderId()))
+				.concatMap(a -> inventoryOrder(a.getOrderId()))
+				;
+		return created;
 	}
 
-	@MessageMapping("create-order-mono")
-	Mono<Order> requestMonoResponse(Long id) {
-		System.out.printf("criando um pedido: %s\n", id);
-		Mono<Order> orderMono = Mono.just(new Order(id, "created", Instant.now()));
-
-		return orderMono.log();
+	private Mono<Order> payOrder(Long id) {
+		return paymentRequester
+			.route("payment-order")
+			.data(id)
+			.retrieveMono(Order.class)
+			.doOnNext(o -> System.out.println(o))
+		;
 	}
+
+	private boolean isPaymentRequesterConnected() {
+		if (paymentRequester == null) {
+			paymentRequester =
+				builder.connectTcp("localhost", 7100)
+						.onErrorContinue((e, i) -> {
+							System.out.println("Error For Item +" + i );
+						})
+						.block();
+		}
+		return (paymentRequester != null);
+	}
+
+	private boolean isInventoryRequesterConnected() {
+		if (inventoryRequester == null) {
+			inventoryRequester =
+					builder.connectTcp("localhost", 7200)
+							.onErrorContinue((e, i) -> {
+								System.out.println("Error For Item +" + i);
+							})
+							.block();
+		}
+		return (inventoryRequester != null);
+	}
+
+	private Mono<Order> inventoryOrder(Long id) {
+		return inventoryRequester
+			.route("inventory-order")
+			.data(id)
+			.retrieveMono(Order.class)
+			.doOnNext(o -> System.out.println(o))
+		;
+	}
+
 }
 
 class Order {

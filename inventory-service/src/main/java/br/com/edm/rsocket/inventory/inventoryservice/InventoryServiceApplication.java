@@ -4,8 +4,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.stereotype.Controller;
+import reactor.core.publisher.Mono;
 
 import java.time.Instant;
+import java.util.concurrent.ThreadLocalRandom;
 
 @SpringBootApplication
 public class InventoryServiceApplication {
@@ -17,14 +19,22 @@ public class InventoryServiceApplication {
 }
 
 @Controller
-class RSocketController {
+class InventoryController {
 
 	@MessageMapping("inventory-order")
-	Order requestResponse(Order order) {
-		System.out.printf("Received request-response request: %s\n", order.getOrderId());
-
-		return new Order(order.getOrderId(), "inventory", Instant.now());
+	Mono<Order> requestResponse(Long id) throws InterruptedException {
+		delay();
+		return Mono.just(new Order(id, "inventory", Instant.now()));
 	}
+
+	private void delay() {
+		try {
+			Thread.sleep(ThreadLocalRandom.current().nextLong(1000, 3000));
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+
 }
 
 class Order {
