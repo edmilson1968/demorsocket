@@ -1,6 +1,7 @@
 package br.com.edm.rsocket.order;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.http.MediaType;
@@ -28,22 +29,28 @@ class OrderController {
 	private Mono<RSocketRequester> paymentRequester;
 	private Mono<RSocketRequester> inventoryRequester;
 
+	@Value("${range.min}")
+	private Integer rangeMin;
+
+	@Value("${range.max}")
+	private Integer rangeMax;
+
 	public OrderController(@Autowired RSocketRequester.Builder builder) {
 		paymentRequester = builder
 				.connectTcp("localhost", 7100)
-				.doOnError(error -> System.err.println("payment connection CLOSED"))
+				.doOnError(error -> System.err.println("payment connection CLOSED")).retry(5)
 		;
 
 		inventoryRequester = builder
 				.connectTcp("localhost", 7200)
-				.doOnError(error -> System.err.println("inventory connection CLOSED"))
+				.doOnError(error -> System.err.println("inventory connection CLOSED")).retry(5)
 		;
 	}
 
 	@GetMapping(value = "/neworders", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public Flux<Order> create() {
 		Flux<Order> ordercreate = Flux
-				.range(1, 5)
+				.range(rangeMin, rangeMax)
 				.delayElements(Duration.ofSeconds(1))
 				.map(i -> Integer.toUnsignedLong(i))
 				.map(o -> new Order(o, "created", Instant.now()))
@@ -71,9 +78,7 @@ class OrderController {
 			if ("payment approved".equals(o.getStatus())) {
 				return o;
 			} else {
-				Order ret = new Order(o.getOrderId(), "cancelled", Instant.now());
-				System.out.println(ret);
-				return ret;
+				return new Order(o.getOrderId(), "cancelled", Instant.now());
 			}
 		});
 	}

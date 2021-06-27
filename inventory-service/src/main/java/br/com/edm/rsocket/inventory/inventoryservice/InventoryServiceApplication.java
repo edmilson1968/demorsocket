@@ -1,5 +1,6 @@
 package br.com.edm.rsocket.inventory.inventoryservice;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -21,6 +22,12 @@ public class InventoryServiceApplication {
 @Controller
 class InventoryController {
 
+	@Value("${sleep.min}")
+	private Long sleepMin;
+
+	@Value("${sleep.max}")
+	private Long sleepMax;
+
 	@MessageMapping("inventory-order")
 	Mono<Order> requestResponse(Long id) throws InterruptedException {
 		delay();
@@ -31,7 +38,7 @@ class InventoryController {
 
 	private void delay() {
 		try {
-			Thread.sleep(ThreadLocalRandom.current().nextLong(1000, 3000));
+			Thread.sleep(ThreadLocalRandom.current().nextLong(sleepMin, sleepMax));
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
