@@ -3,6 +3,7 @@ package br.com.edm.rsocket.order;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.http.MediaType;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,22 +40,30 @@ class OrderController {
 		;
 	}
 
-	@GetMapping(value = "/neworders")
-	public void create() {
-		Flux
-			.range(1, 10)
-			.delayElements(Duration.ofSeconds(1))
-			.map(i -> Integer.toUnsignedLong(i))
-			.map(o -> new Order(o, "created", Instant.now()))
-			.doOnNext(o -> System.out.println(o))
+	@GetMapping(value = "/neworders", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+	public Flux<Order> create() {
+		Flux<Order> ordercreate = Flux
+				.range(1, 5)
+				.delayElements(Duration.ofSeconds(1))
+				.map(i -> Integer.toUnsignedLong(i))
+				.map(o -> new Order(o, "created", Instant.now()))
+				.doOnNext(o -> System.out.println(o))
+				;
 
-			.flatMap(o -> payOrder(o.getOrderId()))
-			.flatMap(o -> check(o))
+		Flux<Order> payment = Flux.merge(ordercreate)
+				.flatMap(o -> payOrder(o.getOrderId()))
+				.flatMap(o -> check(o))
+				.doOnNext(o -> System.out.println(o))
+				;
 
-			.filter(o -> "payment approved".equals(o.getStatus()))
-			.concatMap(o -> inventoryOrder(o.getOrderId()))
+		Flux<Order> inventory = Flux.merge(payment)
+				.filter(o -> "payment approved".equals(o.getStatus()))
+				.concatMap(o -> inventoryOrder(o.getOrderId()))
+				.doOnNext(o -> System.out.println(o))
+				;
 
-			.subscribe();
+		Flux<Order> merged = inventory.mergeWith(payment).mergeWith(ordercreate);
+		return merged;
 	}
 
 	private Mono<Order> check(Order o) {
