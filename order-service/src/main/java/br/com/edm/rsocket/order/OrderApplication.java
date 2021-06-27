@@ -7,13 +7,10 @@ import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
-import reactor.core.scheduler.Schedulers;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Random;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 @SpringBootApplication
 public class OrderApplication {
@@ -27,42 +24,65 @@ public class OrderApplication {
 @RestController
 class OrderController {
 
-	private final RSocketRequester createOrderRequester;
+	private Mono<RSocketRequester> paymentRequester;
+	private Mono<RSocketRequester> inventoryRequester;
 
 	public OrderController(@Autowired RSocketRequester.Builder builder) {
-		this.createOrderRequester =
-				builder.connectTcp("localhost", 7000)
-						.onErrorContinue((e, i) -> {
-							System.out.println("Error For Item +" + i);
-						}).block();
-	}
+		paymentRequester = builder
+				.connectTcp("localhost", 7100)
+				.doOnError(error -> System.err.println("payment connection CLOSED"))
+		;
 
-	private Random random = new Random();
+		inventoryRequester = builder
+				.connectTcp("localhost", 7200)
+				.doOnError(error -> System.err.println("inventory connection CLOSED"))
+		;
+	}
 
 	@GetMapping(value = "/neworders")
 	public void create() {
-		ExecutorService myPool = Executors.newFixedThreadPool(10);
 		Flux
 			.range(1, 10)
 			.delayElements(Duration.ofSeconds(1))
-			.parallel(10)
-			.runOn(Schedulers.fromExecutorService(myPool))
 			.map(i -> Integer.toUnsignedLong(i))
-			.flatMap(id -> sendOrder(id))
-			.sequential()
+			.map(o -> new Order(o, "created", Instant.now()))
+			.doOnNext(o -> System.out.println(o))
+
+			.flatMap(o -> payOrder(o.getOrderId()))
+
+			.filter(o -> "payment approved".equals(o.getStatus()))
+			.concatMap(o -> inventoryOrder(o.getOrderId()))
+
 			.subscribe();
 	}
 
-	private Flux<Order> sendOrder(Long id) {
-		Flux<Order> createdOrder =
-				createOrderRequester
-						.route("create-order")
+	private Mono<Order> payOrder(Long id) {
+
+		Mono<Order> pay =
+				paymentRequester
+					.flatMap(req -> req
+						.route("payment-order")
 						.data(id)
-						.retrieveFlux(Order.class)
+						.retrieveMono(Order.class)
+						.doOnNext(o -> System.out.println(o))
+					)
 				;
-		return createdOrder;
+		return pay;
 	}
 
+	private Mono<Order> inventoryOrder(Long id) {
+
+		Mono<Order> inventory =
+				inventoryRequester
+					.flatMap(req -> req
+						.route("inventory-order")
+						.data(id)
+						.retrieveMono(Order.class)
+						.doOnNext(o -> System.out.println(o))
+					)
+				;
+		return inventory;
+	}
 }
 
 class Order {
@@ -89,5 +109,13 @@ class Order {
 		return timestamp;
 	}
 
+	@Override
+	public String toString() {
+		return "Order{" +
+				"orderId=" + orderId +
+				", status='" + status + '\'' +
+				", timestamp=" + timestamp +
+				'}';
+	}
 }
 

@@ -24,7 +24,16 @@ class PaymentController {
 	@MessageMapping("payment-order")
 	Mono<Order> requestResponse(Long id) throws InterruptedException {
 		delay();
-		return Mono.just(new Order(id, "payment", Instant.now()));
+		return Mono
+				.just(
+					new Order(
+						id,
+						(id % 2 == 0 ? "payment approved": "payment refused"),
+						Instant.now()
+					)
+				)
+				.doOnNext(o -> System.out.println(o))
+		;
 	}
 
 	private void delay() {
@@ -58,5 +67,14 @@ class Order {
 
 	public Instant getTimestamp() {
 		return timestamp;
+	}
+
+	@Override
+	public String toString() {
+		return "Order{" +
+				"orderId=" + orderId +
+				", status='" + status + '\'' +
+				", timestamp=" + timestamp +
+				'}';
 	}
 }

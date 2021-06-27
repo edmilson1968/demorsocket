@@ -24,7 +24,9 @@ class InventoryController {
 	@MessageMapping("inventory-order")
 	Mono<Order> requestResponse(Long id) throws InterruptedException {
 		delay();
-		return Mono.just(new Order(id, "inventory", Instant.now()));
+		return Mono.just(new Order(id, "inventory", Instant.now()))
+				.doOnNext(o -> System.out.println(o))
+		;
 	}
 
 	private void delay() {
@@ -59,5 +61,14 @@ class Order {
 
 	public Instant getTimestamp() {
 		return timestamp;
+	}
+
+	@Override
+	public String toString() {
+		return "Order{" +
+				"orderId=" + orderId +
+				", status='" + status + '\'' +
+				", timestamp=" + timestamp +
+				'}';
 	}
 }
