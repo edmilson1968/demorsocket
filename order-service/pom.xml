@@ -9,7 +9,7 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>br.com.edm.rsocket</groupId>
-	<artifactId>order-service</artifactId>
+	<artifactId>order-service-http</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>order-service</name>
 	<description>Demo project for Spring Boot</description>

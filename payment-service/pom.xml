@@ -9,7 +9,7 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>br.com.edm.rsocket.payment</groupId>
-	<artifactId>payment-service</artifactId>
+	<artifactId>payment-service-http</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>payment-service</name>
 	<description>Demo project for Spring Boot</description>

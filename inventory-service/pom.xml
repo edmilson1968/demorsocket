@@ -9,7 +9,7 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>br.com.edm.rsocket.inventory</groupId>
-	<artifactId>inventory-service</artifactId>
+	<artifactId>inventory-service-http</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>inventory-service</name>
 	<description>Demo project for Spring Boot</description>

@@ -1,5 +1,6 @@
 package br.com.edm.rsocket.order;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.http.MediaType;
@@ -27,6 +28,12 @@ class OrderController {
 	private final WebClient paymentRequester;
 	private final WebClient inventoryRequester;
 
+	@Value("${range.min}")
+	private Integer rangeMin;
+
+	@Value("${range.max}")
+	private Integer rangeMax;
+
 	public OrderController(WebClient.Builder builder) {
 		paymentRequester = builder
 				.baseUrl("http://localhost:8100").build()
@@ -39,26 +46,8 @@ class OrderController {
 
 	@GetMapping(value = "/neworders", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public Flux<Order> create() {
-//		Flux<Order> all = Flux
-//			.range(1, 100)
-//			.delayElements(Duration.ofSeconds(1))
-//			.map(i -> Integer.toUnsignedLong(i))
-//			.map(o -> new Order(o, "created", Instant.now()))
-//			.doOnNext(o -> System.out.println(o))
-//
-//			.flatMap(o -> payOrder(o.getOrderId()))
-//			.flatMap(o -> check(o))
-//			.doOnNext(o -> System.out.println(o))
-//
-//			.filter(o -> "payment approved".equals(o.getStatus()))
-//			.concatMap(o -> inventoryOrder(o.getOrderId()))
-//			.doOnNext(o -> System.out.println(o))
-//
-//		;
-//		return all;
-
 		Flux<Order> ordercreate = Flux
-				.range(1, 5)
+				.range(rangeMin, rangeMax)
 				.delayElements(Duration.ofSeconds(1))
 				.map(i -> Integer.toUnsignedLong(i))
 				.map(o -> new Order(o, "created", Instant.now()))
@@ -86,9 +75,7 @@ class OrderController {
 			if ("payment approved".equals(o.getStatus())) {
 				return o;
 			} else {
-				Order ret = new Order(o.getOrderId(), "cancelled", Instant.now());
-				System.out.println(ret);
-				return ret;
+				return new Order(o.getOrderId(), "cancelled", Instant.now());
 			}
 		});
 	}

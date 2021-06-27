@@ -1,5 +1,6 @@
 package br.com.edm.rsocket.payment.paymentservice;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.http.MediaType;
@@ -23,6 +24,12 @@ public class PaymentServiceApplication {
 @RestController
 class PaymentController {
 
+	@Value("${sleep.min}")
+	private Long sleepMin;
+
+	@Value("${sleep.max}")
+	private Long sleepMax;
+
 	@PostMapping(value = "/payment-order/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
 	Mono<Order> requestResponse(@PathVariable Long id) throws InterruptedException {
 		delay();
@@ -30,7 +37,7 @@ class PaymentController {
 				.just(
 					new Order(
 						id,
-						(id % 2 == 0 ? "payment approved": "payment refused"),
+						((id % 2 == 0 || id % 3 == 0) ? "payment approved": "payment refused"),
 						Instant.now()
 					)
 				)
@@ -40,7 +47,7 @@ class PaymentController {
 
 	private void delay() {
 		try {
-			Thread.sleep(ThreadLocalRandom.current().nextLong(1000, 4000));
+			Thread.sleep(ThreadLocalRandom.current().nextLong(sleepMin, sleepMax));
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
