@@ -2,8 +2,9 @@ package br.com.edm.rsocket.inventory.inventoryservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.stereotype.Controller;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
@@ -18,10 +19,10 @@ public class InventoryServiceApplication {
 
 }
 
-@Controller
+@RestController
 class InventoryController {
 
-	@MessageMapping("inventory-order")
+	@PostMapping(value = "/inventory-order/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
 	Mono<Order> requestResponse(Long id) throws InterruptedException {
 		delay();
 		return Mono.just(new Order(id, "inventory", Instant.now()))
