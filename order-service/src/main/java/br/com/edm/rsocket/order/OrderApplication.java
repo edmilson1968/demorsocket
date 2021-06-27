@@ -49,12 +49,26 @@ class OrderController {
 			.doOnNext(o -> System.out.println(o))
 
 			.flatMap(o -> payOrder(o.getOrderId()))
+			.flatMap(o -> check(o))
 
 			.filter(o -> "payment approved".equals(o.getStatus()))
 			.concatMap(o -> inventoryOrder(o.getOrderId()))
 
 			.subscribe();
 	}
+
+	private Mono<Order> check(Order o) {
+		return Mono.fromSupplier(() -> {
+			if ("payment approved".equals(o.getStatus())) {
+				return o;
+			} else {
+				Order ret = new Order(o.getOrderId(), "cancelled", Instant.now());
+				System.out.println(ret);
+				return ret;
+			}
+		});
+	}
+
 
 	private Mono<Order> payOrder(Long id) {
 
