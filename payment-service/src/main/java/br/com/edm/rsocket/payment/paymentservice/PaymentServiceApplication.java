@@ -28,7 +28,7 @@ class PaymentController {
 				.just(
 					new Order(
 						id,
-						(id % 2 == 0 ? "payment approved": "payment refused"),
+						((id % 2 == 0 || id % 3 == 0) ? "payment approved": "payment refused"),
 						Instant.now()
 					)
 				)
